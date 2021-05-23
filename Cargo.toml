@@ -1,0 +1,9 @@
+[package]
+name = "al"
+version = "0.0.1"
+authors = ["evnp <ep@e2.gg>"]
+edition = "2018"
+
+[dependencies]
+clap = "2.33.3"
+skim = "0.9.4"

@@ -1,43 +1,60 @@
 extern crate clap;
+extern crate skim;
 
 use clap::clap_app;
+use skim::prelude::{Skim, SkimItemReader, SkimOptionsBuilder};
+use std::io::Cursor;
+use std::process::Command;
 
 use al::Args;
 
-// Get config values directly from Cargo.toml so they _never_ get out of sync:
-const VERSION: &str = env!("CARGO_PKG_VERSION");
-const DESCRIPTION: &str = env!("CARGO_PKG_DESCRIPTION");
-const AUTHOR: &str = env!("CARGO_PKG_AUTHORS");
-
 fn main() {
-    // Parse arguments from command line via https://github.com/clap-rs/clap
     let args = Args::new(
         clap_app!(al =>
-            // Use config values from Cargo.toml:
-            (version: VERSION)
-            (author: AUTHOR)
-            (about: DESCRIPTION)
-            // Positional argument:
+            (version: env!("CARGO_PKG_VERSION"))
+            (author: env!("CARGO_PKG_AUTHORS"))
+            (about: env!("CARGO_PKG_DESCRIPTION"))
             (@arg ALIAS: "alias to execute or operate on")
-            // Keyword arguments:
             (@arg EDIT: -e --edit +takes_value "create or edit alias value")
             (@arg MOVE: -m --move +takes_value "change alias name")
-            // Boolean arguments (flags):
             (@arg delete: -d --delete "continuously output images to terminal")
             (@arg verbose: -v --verbose "output info/debugging output to terminal")
             (@arg quiet: -q --quiet "suppress all output -- run silently")
         )
-        // Args constructor accepts a clap::ArgMatches object:
         .get_matches(),
     )
-    // Args constructor will error if no target directory was provided and
-    // it is unable to determine current working directory of script.
-    // In this case, print the error and exit immediately (!panic):
     .unwrap_or_else(|error| panic!("error: {:?}", error));
 
-    // If verbose mode requested, print info line with argument values.
-    // Formatting handled via Args::fmt -- implementation of Display trait.
     if args.verbose {
         println!("{}", args);
+    }
+
+    let alias_cmd = "source $HOME/.aliases; source $HOME/.bash_aliases; alias";
+    let format_cmd = "| cut -d'=' -f1 | cut -d' ' -f2";
+    let output = Command::new("bash")
+        .arg("-c")
+        .arg(format!("{} {}", alias_cmd, format_cmd))
+        .output()
+        .expect("Failed to list aliases.");
+
+    let aliases = String::from(String::from_utf8_lossy(&output.stdout));
+
+    let items = SkimItemReader::default().of_bufread(Cursor::new(aliases));
+
+    let selected = Skim::run_with(
+        &SkimOptionsBuilder::default()
+            .height(Some("40%"))
+            .preview(Some(&format!("bash -c '{}' | grep {{q}}", alias_cmd)))
+            // {{q}} refers to current query string
+            .reverse(true)
+            .build()
+            .unwrap(),
+        Some(items),
+    )
+    .map(|out| out.selected_items)
+    .unwrap_or_else(Vec::new);
+
+    for item in selected.iter() {
+        println!("{}", item.output());
     }
 }

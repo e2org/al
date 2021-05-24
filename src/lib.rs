@@ -20,12 +20,12 @@ impl fmt::Display for Args {
             "ARGS: alias={} edit={} rename={} delete={} verbose={} quiet={}",
             format!("\"{}\"", self.alias),
             match &self.edit {
-                Some(val) => format!("\"{}\"", val),
-                None => "None".to_string(),
+                Some(arg) => format!("\"{}\"", arg),
+                None => String::from("None"),
             },
             match &self.rename {
-                Some(val) => format!("\"{}\"", val),
-                None => "None".to_string(),
+                Some(arg) => format!("\"{}\"", arg),
+                None => String::from("None"),
             },
             self.delete,
             self.verbose,
@@ -36,18 +36,9 @@ impl fmt::Display for Args {
 
 impl Args {
     pub fn new(matches: clap::ArgMatches) -> Result<Args> {
-        let alias = match matches.value_of("ALIAS") {
-            Some(arg) => arg.to_string(),
-            None => "".to_string(),
-        };
-        let edit = match matches.value_of("EDIT") {
-            Some(arg) => Some(arg.to_string()),
-            None => None,
-        };
-        let rename = match matches.value_of("RENAME") {
-            Some(arg) => Some(arg.to_string()),
-            None => None,
-        };
+        let alias = String::from(matches.value_of("ALIAS").unwrap_or_else(|| ""));
+        let edit = matches.value_of("EDIT").map(|arg| String::from(arg));
+        let rename = matches.value_of("RENAME").map(|arg| String::from(arg));
         let delete = matches.is_present("delete");
         let verbose = matches.is_present("verbose");
         let quiet = matches.is_present("quiet");

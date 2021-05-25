@@ -1,7 +1,9 @@
 extern crate clap;
+extern crate rand;
 extern crate skim;
 
 use clap::clap_app;
+use rand::seq::SliceRandom;
 use skim::prelude::{Skim, SkimItemReader, SkimOptionsBuilder};
 use std::io::Cursor;
 use std::process::Command;
@@ -41,8 +43,22 @@ fn main() {
 
     let items = SkimItemReader::default().of_bufread(Cursor::new(aliases));
 
+    let colorschemes = vec![
+        // Colorscheme CMYK:
+        "bg+:-1,border:#0000ff,pointer:#0bc7e3,prompt:#feaf3c,info:#0000ff,fg:#0000ff,fg+:#0bc7e3,hl:#ff00ff,hl+:#ff00ff",
+        // Colorscheme Outrun:
+        "bg+:-1,border:#541388,pointer:#ef2b63,prompt:#0bc7e3,info:#541388,fg:#541388,fg+:#ef2b63,hl:#0bc7e3,hl+:#0bc7e3",
+        // Colorscheme Submariner:
+        "bg+:-1,border:#1d485f,pointer:#0bc7e3,prompt:#db662d,info:#1d485f,fg:#1d485f,fg+:#0bc7e3,hl:#db662d,hl+:#db662d",
+    ];
+    let colorscheme = colorschemes.choose(&mut rand::thread_rng()).unwrap();
+
     let selected = Skim::run_with(
         &SkimOptionsBuilder::default()
+            .query(Some(&args.alias))
+            .color(Some(colorscheme))
+            .prompt(Some("$ "))
+            .margin(Some("1,2"))
             .height(Some("40%"))
             .preview(Some(&format!("bash -c '{}' | grep {{q}}", alias_cmd)))
             // {{q}} refers to current query string
@@ -54,7 +70,9 @@ fn main() {
     .map(|out| out.selected_items)
     .unwrap_or_else(Vec::new);
 
+    println!();
     for item in selected.iter() {
-        println!("{}", item.output());
+        println!("  $ {}", item.output());
     }
+    println!();
 }

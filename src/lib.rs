@@ -37,8 +37,8 @@ impl fmt::Display for Args {
 impl Args {
     pub fn new(matches: clap::ArgMatches) -> Result<Args> {
         let alias = String::from(matches.value_of("ALIAS").unwrap_or_else(|| ""));
-        let edit = matches.value_of("EDIT").map(|arg| String::from(arg));
-        let rename = matches.value_of("RENAME").map(|arg| String::from(arg));
+        let edit = matches.value_of("EDIT").map(String::from);
+        let rename = matches.value_of("RENAME").map(String::from);
         let delete = matches.is_present("delete");
         let verbose = matches.is_present("verbose");
         let quiet = matches.is_present("quiet");

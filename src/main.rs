@@ -8,7 +8,7 @@ use rand::seq::SliceRandom;
 use regex::RegexBuilder;
 use skim::prelude::{Skim, SkimItemReader, SkimOptionsBuilder};
 use std::io::Cursor;
-use std::process::{Command, Stdio};
+use std::process::{self, Command, Stdio};
 
 use al::Args;
 
@@ -71,6 +71,7 @@ fn main() {
             .margin(Some("1,2"))
             .height(Some("40%"))
             .reverse(true)
+            .inline_info(true)
             .preview(Some(&preview)) // show full alias text alongside each item
             // {{q}} refers to current query string
             .build()
@@ -78,6 +79,10 @@ fn main() {
         Some(items),
     )
     .unwrap();
+
+    if result.is_abort {
+        process::exit(0);
+    }
 
     // If no alias is selected, use query string:
     let mut choice = result.query;

@@ -1,12 +1,14 @@
 extern crate clap;
 extern crate rand;
+extern crate regex;
 extern crate skim;
 
 use clap::clap_app;
 use rand::seq::SliceRandom;
+use regex::RegexBuilder;
 use skim::prelude::{Skim, SkimItemReader, SkimOptionsBuilder};
 use std::io::Cursor;
-use std::process::Command;
+use std::process::{Command, Stdio};
 
 use al::Args;
 
@@ -31,17 +33,24 @@ fn main() {
         println!("{}", args);
     }
 
-    let alias_cmd = "source $HOME/.aliases; source $HOME/.bash_aliases; alias";
-    let format_cmd = "| cut -d'=' -f1 | cut -d' ' -f2";
+    // Get output of "alias" command for the user's local shell:
     let output = Command::new("bash")
-        .arg("-c")
-        .arg(format!("{} {}", alias_cmd, format_cmd))
+        .arg("-c") // execute in user shell so user-defined aliases are available
+        .arg("-i") // shell must be "interactive"
+        .arg("alias")
         .output()
         .expect("Failed to list aliases.");
-
     let aliases = String::from(String::from_utf8_lossy(&output.stdout));
+    let preview = format!("grep {{q}} <<EOF\n{}\nEOF", aliases);
 
-    let items = SkimItemReader::default().of_bufread(Cursor::new(aliases));
+    // Format each item for display via Skim:
+    // "alias foo='bar'" --> "foo"
+    let re = RegexBuilder::new(r"((=[^\n]+)($|\n))?(^|\n)(alias )?")
+        .multi_line(true)
+        .build()
+        .unwrap();
+    let items = SkimItemReader::default()
+        .of_bufread(Cursor::new(String::from(re.replace_all(&aliases, "\n"))));
 
     let colorschemes = vec![
         // Colorscheme CMYK:
@@ -53,26 +62,39 @@ fn main() {
     ];
     let colorscheme = colorschemes.choose(&mut rand::thread_rng()).unwrap();
 
-    let selected = Skim::run_with(
+    // Run Skim to allow user to select alias:
+    let result = Skim::run_with(
         &SkimOptionsBuilder::default()
             .query(Some(&args.alias))
             .color(Some(colorscheme))
             .prompt(Some("$ "))
             .margin(Some("1,2"))
             .height(Some("40%"))
-            .preview(Some(&format!("bash -c '{}' | grep {{q}}", alias_cmd)))
-            // {{q}} refers to current query string
             .reverse(true)
+            .preview(Some(&preview)) // show full alias text alongside each item
+            // {{q}} refers to current query string
             .build()
             .unwrap(),
         Some(items),
     )
-    .map(|out| out.selected_items)
-    .unwrap_or_else(Vec::new);
+    .unwrap();
 
-    println!();
-    for item in selected.iter() {
-        println!("  $ {}", item.output());
+    // If no alias is selected, use query string:
+    let mut choice = result.query;
+    for item in result.selected_items.iter() {
+        choice = String::from(item.output());
     }
-    println!();
+
+    // Output selection, matching text alignment with skim prompt:
+    println!("\n  $ {}\n", choice);
+
+    // Execute selected alias:
+    Command::new("bash")
+        .arg("-c") // execute in user shell so user-defined aliases are available
+        .arg("-i") // shell must be "interactive"
+        .arg(choice)
+        .stdout(Stdio::inherit())
+        .stderr(Stdio::inherit())
+        .output()
+        .expect("Failed to execute alias.");
 }

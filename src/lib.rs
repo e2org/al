@@ -36,7 +36,7 @@ impl fmt::Display for Args {
 
 impl Args {
     pub fn new(matches: clap::ArgMatches) -> Result<Args> {
-        let alias = String::from(matches.value_of("ALIAS").unwrap_or_else(|| ""));
+        let alias = String::from(matches.value_of("ALIAS").unwrap_or(""));
         let edit = matches.value_of("EDIT").map(String::from);
         let rename = matches.value_of("RENAME").map(String::from);
         let delete = matches.is_present("delete");

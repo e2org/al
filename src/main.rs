@@ -1,16 +1,14 @@
 extern crate clap;
-extern crate rand;
 extern crate regex;
 extern crate skim;
 
 use clap::clap_app;
-use rand::seq::SliceRandom;
 use regex::RegexBuilder;
 use skim::prelude::{Skim, SkimItemReader, SkimOptionsBuilder};
 use std::io::Cursor;
 use std::process::{self, Command, Stdio};
 
-use al::Args;
+use al::{colorscheme, Args};
 
 fn main() {
     let args = Args::new(
@@ -18,12 +16,18 @@ fn main() {
             (version: env!("CARGO_PKG_VERSION"))
             (author: env!("CARGO_PKG_AUTHORS"))
             (about: env!("CARGO_PKG_DESCRIPTION"))
-            (@arg ALIAS: "alias to execute or operate on")
-            (@arg EDIT: -e --edit +takes_value "create or edit alias value")
-            (@arg MOVE: -m --move +takes_value "change alias name")
-            (@arg delete: -d --delete "continuously output images to terminal")
-            (@arg verbose: -v --verbose "output info/debugging output to terminal")
-            (@arg quiet: -q --quiet "suppress all output -- run silently")
+            (@arg ALIAS:
+             "alias to execute or operate on")
+            (@arg EDIT: -e --edit +takes_value
+             "create or edit alias value")
+            (@arg MOVE: -m --move +takes_value
+             "change alias name")
+            (@arg delete: -d --delete
+             "continuously output images to terminal")
+            (@arg color: -c --color +takes_value
+             "choose color scheme")
+            (@arg verbose: -v --verbose
+             "output info/debugging output to terminal")
         )
         .get_matches(),
     )
@@ -52,21 +56,11 @@ fn main() {
     let items = SkimItemReader::default()
         .of_bufread(Cursor::new(String::from(re.replace_all(&aliases, "\n"))));
 
-    let colorschemes = vec![
-        // Colorscheme CMYK:
-        "bg+:-1,border:#0000ff,pointer:#0bc7e3,prompt:#feaf3c,info:#0000ff,fg:#0000ff,fg+:#0bc7e3,hl:#ff00ff,hl+:#ff00ff",
-        // Colorscheme Outrun:
-        "bg+:-1,border:#541388,pointer:#ef2b63,prompt:#0bc7e3,info:#541388,fg:#541388,fg+:#ef2b63,hl:#0bc7e3,hl+:#0bc7e3",
-        // Colorscheme Submariner:
-        "bg+:-1,border:#1d485f,pointer:#0bc7e3,prompt:#db662d,info:#1d485f,fg:#1d485f,fg+:#0bc7e3,hl:#db662d,hl+:#db662d",
-    ];
-    let colorscheme = colorschemes.choose(&mut rand::thread_rng()).unwrap();
-
     // Run Skim to allow user to select alias:
     let result = Skim::run_with(
         &SkimOptionsBuilder::default()
             .query(Some(&args.alias))
-            .color(Some(colorscheme))
+            .color(Some(colorscheme(&args)))
             .prompt(Some("$ "))
             .margin(Some("1,2"))
             .height(Some("40%"))
